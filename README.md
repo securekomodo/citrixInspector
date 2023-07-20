@@ -96,7 +96,7 @@ Depending on the checks passed, the script infers if the target is a Citrix Gate
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
 
 ## Legal Disclaimer
-This project is made for educational and ethical testing purposes only. Usage of text4shell-scan for attacking targets without prior mutual consent is illegal. It is the end user's responsibility to obey all applicable local, state and federal laws. Developers assume no liability and are not responsible for any misuse or damage caused by this program.
+This project is made for educational and ethical testing purposes only. Usage of citrixInspector/cve_2023_3519_inspector for attacking targets without prior mutual consent is illegal. It is the end user's responsibility to obey all applicable local, state and federal laws. Developers assume no liability and are not responsible for any misuse or damage caused by this program.
 
 ## License
 The project is licensed under MIT License.
