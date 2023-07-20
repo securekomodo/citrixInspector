@@ -1,6 +1,9 @@
 # CVE-2023-3519 Inspector
 
-The `cve_2023_3519_inspector.py` is a Python-based vulnerability scanner for detecting the CVE-2023-3519 vulnerability in Citrix Gateways. It performs a passive analysis and fingerprinting of target websites to assess their vulnerability based on a series of checks. 
+The `cve_2023_3519_inspector.py` is a Python-based vulnerability scanner for detecting the CVE-2023-3519 vulnerability in Citrix Gateways. It performs a passive analysis and fingerprinting of target websites to assess their vulnerability based on a series of checks.
+
+<img width="968" alt="image" src="https://github.com/securekomodo/citrixInspector/assets/4809643/f9186404-cc85-4ffb-89be-32b5f0db05ba">
+
 
 ## Installation
 
