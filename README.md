@@ -5,6 +5,9 @@ The `cve_2023_3519_inspector.py` is a Python-based vulnerability scanner for det
 <img width="968" alt="image" src="https://github.com/securekomodo/citrixInspector/assets/4809643/f9186404-cc85-4ffb-89be-32b5f0db05ba">
 
 
+### Recent Updates
+- Implemented logic on scanner to determine if target is verified patched. Thanks @UK_Daniel_Card & @DTCERT
+
 ## Installation
 
 This script requires Python 3.6+ and the following Python packages:
@@ -104,7 +107,7 @@ The project is licensed under MIT License.
 ## Author
 Bryan Smith
 
-Twitter: https://twitter.com/securekomodo
-Bugcrowd/Hackerone: @d4rkm0de
+- Twitter: https://twitter.com/securekomodo
+- Bugcrowd/Hackerone: @d4rkm0de
 
 ---
