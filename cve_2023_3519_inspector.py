@@ -14,8 +14,12 @@ import warnings
 import sys
 import subprocess
 import pkg_resources
+import datetime
 
-# Check if the OpenSSL version is the one required (required if running on OSX)
+# How many checks per URL
+MAX_RETRIES = 3
+
+# Check if the OpenSSL version is the one required
 REQUIRED_VERSION = "1.26.6"
 try:
     # Get the current version of urllib3
@@ -30,6 +34,16 @@ if current_version != REQUIRED_VERSION:
 
 # Ignore all the SSL/TLS certificate warnings
 warnings.filterwarnings('ignore')
+
+
+# Able to determine patched versions now :)
+# THANKS https://github.com/telekom-security/cve-2023-3519-citrix-scanner/blob/main/CVE-2023-3519-checker.py
+PATCHED_VERSIONS = [
+    {"version": "13.0-91.13", "timestamp": "Fri, 07 Jul 2023 15:39:40 GMT"},
+    {"version": "13.1-49.13", "timestamp": "Mon, 10 Jul 2023 17:41:17 GMT"},
+    {"version": "13.1-49.13", "timestamp": "Mon, 10 Jul 2023 18:36:14 GMT"}
+]
+
 
 # The array of hashes and corresponding versions.
 hash_versions = [
@@ -119,6 +133,7 @@ hash_versions = [
     {"vhash": "f063b04477adc652c6dd502ac0c39a75", "version": "12.1-65.25"}
 ]
 
+
 def is_site_vulnerable(url):
     print(f"{url} - Checking if vulnerable to CVE-2023-3519")
     try:
@@ -139,6 +154,20 @@ def is_site_vulnerable(url):
     hash_exists = False
     hash_check = False
     identified_version = None
+    patched = False
+    header_check = False
+
+    # Check if Response Headers matches CERT UK Research (aka Patched version)
+    last_modified = datetime.datetime.strptime(response.headers["Last-Modified"], "%a, %d %b %Y %H:%M:%S %Z")
+
+    for patch in PATCHED_VERSIONS:
+        if last_modified == datetime.datetime.strptime(patch["timestamp"], "%a, %d %b %Y %H:%M:%S %Z"):
+            logging.info(f"{url} - Patch Check Passed. Not Vulnerable")
+            patched = True
+            identified_version = patch["version"]
+        elif not patched and last_modified < datetime.datetime.strptime("01 Jul 2023 00:00:00 GMT", "%d %b %Y %H:%M:%S %Z"):
+                header_check = True
+                logging.info(f"{url} - Header Check Complete. potentially vulnerable (older than 01 Jul 2023)")
 
     # Check if the title is "Citrix Gateway"
     if soup.title.string == "Citrix Gateway":
@@ -162,7 +191,7 @@ def is_site_vulnerable(url):
     match = re.search(pattern, html_content)
 
     # If a match is found
-    if match:
+    if match and not patched:
         hash_exists = True
         logging.info(f"{url} - Hash found")
 
@@ -178,15 +207,17 @@ def is_site_vulnerable(url):
         logging.info(f"{url} - Hash check Not Found")
 
 
-
     # Decision making based on the checks
-    if hash_check:
+    if patched:
+        logging.info(f"{url} - [PATCHED!] Netscaler / Citrix ADC detected! Identified version: {identified_version}")
+        print(f"{url} - [PATCHED!] Netscaler / Citrix ADC detected! Identified version: {identified_version}")
+    if hash_check and not patched:
         logging.info(f"{url} - [VULNERABLE] Netscaler / Citrix ADC detected! Identified version: {identified_version}")
         print(f"{url} - [VULNERABLE] Netscaler / Citrix ADC detected! Identified version: {identified_version}")
-    elif title_check and comment_check and icon_check and hash_exists:
+    elif title_check and comment_check and icon_check and hash_exists and header_check:
         logging.info(f"{url} - [VULNERABLE] Netscaler / Citrix ADC detected based off passive fingerprinting.")
         print(f"{url} - [VULNERABLE] Netscaler / Citrix ADC detected based off passive fingerprinting.")
-    elif icon_check and not title_check and not comment_check:
+    elif icon_check and title_check:
         logging.info(f"{url} - Possible Netscaler / Citrix ADC detected")
         print(f"{url} - Possible Netscaler / Citrix ADC detected")
     else:
