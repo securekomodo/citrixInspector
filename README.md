@@ -27,7 +27,7 @@ To install the required packages, run:
 git clone https://github.com/securekomodo/citrixInspector.git
 cd citrixInspector
 pip install -r requirements.txt
-python cve_2023_3519_inspector.py -u <target_url> -o <output_file>
+python cve_2023_3519_inspector.py -u <target_url>
 ```
 
 ## Usage
