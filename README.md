@@ -6,6 +6,7 @@ The `cve_2023_3519_inspector.py` is a Python-based vulnerability scanner for det
 
 
 ### Recent Updates
+- Added functionality to parse the /vpn/pluginlist.xml file to determine more accurate checks if patched or vulnerable
 - Added funcionality to optionally check for common web shell IOCs on the target server.
 - Implemented logic on scanner to determine if target is verified patched. Thanks @UK_Daniel_Card & @DTCERT
 
