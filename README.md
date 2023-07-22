@@ -6,6 +6,7 @@ The `cve_2023_3519_inspector.py` is a Python-based vulnerability scanner for det
 
 
 ### Recent Updates
+- Added funcionality to optionally check for common web shell IOCs on the target server.
 - Implemented logic on scanner to determine if target is verified patched. Thanks @UK_Daniel_Card & @DTCERT
 
 ## Installation
@@ -30,7 +31,6 @@ python cve_2023_3519_inspector.py -u <target_url> -o <output_file>
 
 ## Usage
 ```
-
     Author: Bryan Smith (@securekomodo)
     ------------------------
     _________ .__  __         .__                              
@@ -49,7 +49,7 @@ python cve_2023_3519_inspector.py -u <target_url> -o <output_file>
        CVE-2023-3519 Inspector
        ------------------------
        
-usage: cve_2023_3519_inspector.py [-h] (-u URL | -f FILE) [-l LOG]
+usage: cve_2023_3519_inspector.py [-h] (-u URL | -f FILE) [--ioc-check] [-l LOG]
 
 Check for vulnerabilities in Citrix Gateway.
 
@@ -57,6 +57,7 @@ optional arguments:
   -h, --help            show this help message and exit
   -u URL, --url URL     The URL of the Citrix Gateway to check.
   -f FILE, --file FILE  A file containing a list of URLs to check.
+  --ioc-check           Slower. Performs IOC (Indicator of Compromise) check.
   -l LOG, --log LOG     Log file to write the output.
 
 ```
@@ -69,6 +70,9 @@ python cve_2023_3519_inspector.py --url https://example.com
 
 # Check multiple URLs from a file
 python cve_2023_3519_inspector.py --file urls.txt
+
+# Check multiple URLs from a file and check for IOCs
+python cve_2023_3519_inspector.py --file urls.txt --ioc-check
 ```
 
 To specify a log file for output, use the `--log` option:
@@ -87,6 +91,7 @@ python cve_2023_3519_inspector.py --help
 
 The `cve_2023_3519_inspector.py` script performs the following checks on the target websites:
 
+- (Optional) Check for the presence of common web shells known to be affiliated with exploitation in the wild
 - Check if the HTTP title is "Citrix Gateway"
 - Check for the presence of an HTML comment containing the text "frame-busting" which was found as an artifact on older/legacy citrix installations
 - Check for the presence of specific icons associated with Citrix Gateway
