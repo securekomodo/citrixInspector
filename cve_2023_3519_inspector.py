@@ -44,6 +44,37 @@ PATCHED_VERSIONS = [
     {"version": "13.1-49.13", "timestamp": "Mon, 10 Jul 2023 18:36:14 GMT"}
 ]
 
+# some common web shell names and some IOCs mandiant discovered
+POTENTIALLY_COMPROMISED_FILES = [
+    "alfav3-encoded.php",
+    "alfav4.1-decoded.php",
+    "alfav4.1-encoded.php",
+    "andela.php",
+    "bloodsecv4.php",
+    "by.php",
+    "c99ud.php",
+    "cmd.php",
+    "configkillerionkros.php",
+    "mini.php",
+    "obfuscated-punknopass.php",
+    "punk-nopass.php",
+    "punkholic.php",
+    "r57.php",
+    "smevk.php",
+    "TwemlowsWebShell.php",
+    "wso2.8.5.php",
+    "insight-new-min.js",
+    "info.php",
+    "prod.php",
+    "log.php",
+    "logout.php",
+    "vpn.php",
+    "config.php",
+    "shell.php",
+    "poc.php",
+    "rshell.php",
+    "php-reverse-shell.php",
+]
 
 # The array of hashes and corresponding versions.
 hash_versions = [
@@ -133,12 +164,30 @@ hash_versions = [
     {"vhash": "f063b04477adc652c6dd502ac0c39a75", "version": "12.1-65.25"}
 ]
 
+def is_site_compromised(url):
+    print(f"{url} - Basic check if compromised by CVE-2023-3519")
+    for ioc in POTENTIALLY_COMPROMISED_FILES:
+        try:
+            webshell_path = url + "/vpn/themes/" + ioc
+            logging.info(f"Making request to {webshell_path} to determine if compromised")
+            response = requests.get(webshell_path, verify=False, allow_redirects=False)
+        except requests.exceptions.RequestException as e:
+            logging.error(f"An error occurred while trying to connect to {webshell_path}. Error: {e}")
+            return
+
+        if response.status_code == 200:
+            print(f"{webshell_path} is potentially compromised! Evidence of web shell observed!")
+            logging.info(f"{webshell_path} is potentially compromised! Evidence of web shell observed!")
+        elif response.status_code != 404:
+            logging.info(f"Benign Result: {response.text}")
+
+
 
 def is_site_vulnerable(url):
     print(f"{url} - Checking if vulnerable to CVE-2023-3519")
     try:
         logging.info(f"Making request to {url}")
-        response = requests.get(url, verify=False)
+        response = requests.get(url, verify=False, timeout=MAX_RETRIES)
     except requests.exceptions.RequestException as e:
         logging.error(f"An error occurred while trying to connect to {url}. Error: {e}")
         return
@@ -224,8 +273,10 @@ def is_site_vulnerable(url):
         logging.info(f"{url} - No Netscaler / Citrix ADC detected")
         print(f"{url} - No Netscaler / Citrix ADC detected")
 
-def process_urls(urls):
+def process_urls(urls, iocs):
     for url in urls:
+        if iocs:
+            is_site_compromised(url.strip())
         is_site_vulnerable(url.strip())
 
 def main():
@@ -254,16 +305,22 @@ def main():
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('-u', '--url', help="The URL of the Citrix Gateway to check.")
     group.add_argument('-f', '--file', help="A file containing a list of URLs to check.")
+    parser.add_argument('--ioc-check', action='store_true', help='Slower. Performs IOC (Indicator of Compromise) check.')
     parser.add_argument('-l', '--log', default='cve_2023_3519_inspector.log', help="Log file to write the output.")
     args = parser.parse_args()
 
     logging.basicConfig(filename=args.log, filemode='w', format='%(message)s', level=logging.INFO)
 
     if args.url:
+        if args.ioc_check:
+            is_site_compromised(args.url)
         is_site_vulnerable(args.url)
     else:
         with open(args.file, 'r') as file:
-            process_urls(file.readlines())
+            if args.ioc_check:
+                process_urls(file.readlines(), True)
+            else:
+                process_urls(file.readlines(), False)
 
 
 if __name__ == "__main__":
