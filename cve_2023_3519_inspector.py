@@ -15,9 +15,11 @@ import sys
 import subprocess
 import pkg_resources
 import datetime
+from xml.etree import ElementTree as ET
+from urllib.parse import urlparse
 
 # How many checks per URL
-MAX_RETRIES = 3
+MAX_RETRIES = 5
 
 # Check if the OpenSSL version is the one required
 REQUIRED_VERSION = "1.26.6"
@@ -164,32 +166,77 @@ hash_versions = [
     {"vhash": "f063b04477adc652c6dd502ac0c39a75", "version": "12.1-65.25"}
 ]
 
+
+CITRIX_ICON_LOCATIONS = [
+    "/receiver/images/common/icon_vpn.ico",
+    "/vpn/images/AccessGateway.ico",
+]
+
+
+def check_pluginlist_xml(url):
+    parsed_url = urlparse(url)
+    site = f"{parsed_url.scheme}://{parsed_url.netloc}"
+    logging.info(f"Making request to {site} to determine XML version")
+    response = requests.get(f"{site}/vpn/pluginlist.xml", verify=False, allow_redirects=False, timeout=MAX_RETRIES)
+
+    # check if request was successful
+    if response.status_code == 200:
+        root = ET.fromstring(response.content)
+
+        # find the plugin
+        for repository in root.findall('repository'):
+            for plugin in repository.findall('plugin'):
+                name = plugin.get('name')
+                version = plugin.get('version')
+
+                # check if this is the plugin we are interested in
+                if name == "Netscaler Gateway EPA plug-in for Windows (32 bit)":
+                    # extract the major version
+                    major_version = int(version.split(".")[0])
+                    minor_version = int(version.split(".")[1])
+
+                    if major_version < 22:
+                        logging.info(f"{site} - Matched Version: {version}")
+                        return "VULNERABLE"
+                    if major_version >= 23:
+                        if minor_version >= 5:
+                            logging.info(f"{site} - Matched Version: {version}")
+                            return "PATCHED"
+                    else:
+                        logging.info(f"{site} - Version does not match: {version}")
+    else:
+        logging.info(f"{site} - Failed to fetch XML")
+
+
+
 def is_site_compromised(url):
-    print(f"{url} - Basic check if compromised by CVE-2023-3519")
+    parsed_url = urlparse(url)
+    site = f"{parsed_url.scheme}://{parsed_url.netloc}"
+
     for ioc in POTENTIALLY_COMPROMISED_FILES:
         try:
-            webshell_path = url + "/vpn/themes/" + ioc
+            webshell_path = site + "/vpn/themes/" + ioc
             logging.info(f"Making request to {webshell_path} to determine if compromised")
-            response = requests.get(webshell_path, verify=False, allow_redirects=False)
+            response = requests.get(webshell_path, verify=False, allow_redirects=False, timeout=MAX_RETRIES)
         except requests.exceptions.RequestException as e:
             logging.error(f"An error occurred while trying to connect to {webshell_path}. Error: {e}")
             return
 
         if response.status_code == 200:
-            print(f"{webshell_path} is potentially compromised! Evidence of web shell observed!")
+            print(f"{webshell_path} - [COMPROMISE DETECTED]")
             logging.info(f"{webshell_path} is potentially compromised! Evidence of web shell observed!")
         elif response.status_code != 404:
-            logging.info(f"Benign Result: {response.text}")
+            logging.info(f"{webshell_path} - Benign Result: {response.text}")
 
 
 
 def is_site_vulnerable(url):
-    print(f"{url} - Checking if vulnerable to CVE-2023-3519")
     try:
         logging.info(f"Making request to {url}")
         response = requests.get(url, verify=False, timeout=MAX_RETRIES)
     except requests.exceptions.RequestException as e:
         logging.error(f"An error occurred while trying to connect to {url}. Error: {e}")
+        print(f"{url} - [UNREACHABLE]")
         return
 
     html_content = response.text
@@ -205,6 +252,9 @@ def is_site_vulnerable(url):
     identified_version = None
     patched = False
     header_check = False
+    xml_check = False
+
+
 
     # Check if Response Headers matches CERT UK Research (aka Patched version)
     last_modified = datetime.datetime.strptime(response.headers["Last-Modified"], "%a, %d %b %Y %H:%M:%S %Z")
@@ -217,9 +267,14 @@ def is_site_vulnerable(url):
         elif not patched and last_modified < datetime.datetime.strptime("01 Jul 2023 00:00:00 GMT", "%d %b %Y %H:%M:%S %Z"):
                 header_check = True
                 logging.info(f"{url} - Header Check Complete. potentially vulnerable (older than 01 Jul 2023)")
+        elif not patched and "Jul 2023" in response.headers["Last-Modified"]:
+            header_check = True
+            logging.info(f"{url} - Header Check Complete. Most Likely Patched (newer than 01 Jul 2023)")
+            identified_version = None
+            patched = True
 
-    # Check if the title is "Citrix Gateway"
-    if soup.title.string == "Citrix Gateway":
+    # Check if the title is "Citrix" related
+    if soup.title.string in ["Citrix Gateway", "NetScaler AAA", "Digital Workplace", "NetScaler Gateway"]:
         title_check = True
         logging.info(f"{url} - Title Check Passed")
 
@@ -230,8 +285,10 @@ def is_site_vulnerable(url):
 
     # Check for icon
     icon_check = "/vpn/images/AccessGateway.ico" in html_content or "receiver/images/common/icon_vpn.ico" in html_content
-    if icon_check:
-        logging.info(f"{url} - Icon check Passed")
+    for icon in CITRIX_ICON_LOCATIONS:
+        if icon in html_content:
+            icon_check = True
+            logging.info(f"{url} - Icon check Passed")
 
     # Check if ANY hash is identified in HTML content - signifies older version as this was fixed in new releases
     pattern = r'v=[a-fA-F0-9]{32}'
@@ -255,25 +312,49 @@ def is_site_vulnerable(url):
     else:
         logging.info(f"{url} - Hash check Not Found")
 
+    # VPN Pluginlist XML Check
+    xml_check = check_pluginlist_xml(url)
+    if xml_check:
+        if xml_check == "PATCHED":
+            patched = True
+
 
     # Decision making based on the checks
+    status = ''
+    message = ''
+
     if patched:
-        logging.info(f"{url} - [PATCHED!] Netscaler / Citrix ADC detected! Identified version: {identified_version}")
-        print(f"{url} - [PATCHED!] Netscaler / Citrix ADC detected! Identified version: {identified_version}")
-    if hash_check and not patched:
-        logging.info(f"{url} - [VULNERABLE] Netscaler / Citrix ADC detected! Identified version: {identified_version}")
-        print(f"{url} - [VULNERABLE] Netscaler / Citrix ADC detected! Identified version: {identified_version}")
-    elif title_check and comment_check and icon_check and hash_exists and header_check:
-        logging.info(f"{url} - [VULNERABLE] Netscaler / Citrix ADC detected based off passive fingerprinting.")
-        print(f"{url} - [VULNERABLE] Netscaler / Citrix ADC detected based off passive fingerprinting.")
-    elif icon_check and title_check:
-        logging.info(f"{url} - Possible Netscaler / Citrix ADC detected")
-        print(f"{url} - Possible Netscaler / Citrix ADC detected")
+        status = '[PATCHED]'
+        if identified_version:
+            message = f"[CERTAIN] [{identified_version}]"
+        else:
+            message = f"[FIRM]"
+    elif (hash_check or title_check and comment_check and icon_check and hash_exists and header_check) and not patched:
+        status = '[VULNERABLE]'
+        if hash_check:
+            message = f"[CERTAIN] [{identified_version}]"
+        else:
+            message = f"[FIRM]"
+    elif (title_check and icon_check and xml_check) and not patched:
+        status = '[VULNERABLE]'
+        message = f"[TENTATIVE]"
+    elif title_check and icon_check and not patched:
+        status = '[CITRIX DETECTED]'
     else:
-        logging.info(f"{url} - No Netscaler / Citrix ADC detected")
-        print(f"{url} - No Netscaler / Citrix ADC detected")
+        message = f"[CITRIX NOT DETECTED]"
+
+    if status == '[PATCHED]':
+        logging.info(f"{url} - {status} {message}")
+    elif status == '[VULNERABLE]':
+        logging.warning(f"{url} - {status} {message}")
+    else:
+        logging.info(f"{url} - {message}")
+    print(f"{url} - {status} {message}")
 
 def process_urls(urls, iocs):
+    print(f"Checking list if vulnerable to CVE-2023-3519")
+    if iocs:
+        print(f"Checking list if compromised by CVE-2023-3519 (Be patient!)")
     for url in urls:
         if iocs:
             is_site_compromised(url.strip())
@@ -312,16 +393,29 @@ def main():
     logging.basicConfig(filename=args.log, filemode='w', format='%(message)s', level=logging.INFO)
 
     if args.url:
+        timestamp = datetime.datetime.now()
+        logging.info(f"Scan started: {timestamp}")
+        print(f"Scan started: {timestamp}")
+        print(f"{args.url} - Checking if vulnerable to CVE-2023-3519")
         if args.ioc_check:
+            print(f"{args.url} - Checking if compromised by CVE-2023-3519 (Be patient!)")
             is_site_compromised(args.url)
         is_site_vulnerable(args.url)
+        timestamp = datetime.datetime.now()
+        logging.info(f"Scan Complete: {timestamp}")
+        print(f"Scan Complete: {timestamp}")
     else:
+        timestamp = datetime.datetime.now()
+        logging.info(f"Scan started: {timestamp}")
+        print(f"Scan started: {timestamp}")
         with open(args.file, 'r') as file:
             if args.ioc_check:
                 process_urls(file.readlines(), True)
             else:
                 process_urls(file.readlines(), False)
-
+        timestamp = datetime.datetime.now()
+        logging.info(f"Scan Complete: {timestamp}")
+        print(f"Scan Complete: {timestamp}")
 
 if __name__ == "__main__":
     main()
