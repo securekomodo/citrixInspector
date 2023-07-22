@@ -92,6 +92,7 @@ python cve_2023_3519_inspector.py --help
 
 The `cve_2023_3519_inspector.py` script performs the following checks on the target websites:
 
+- Checks for the recent version of the pluginslist.xml file located at /vpn/pluginlist.xml
 - (Optional) Check for the presence of common web shells known to be affiliated with exploitation in the wild
 - Check if the HTTP title is "Citrix Gateway"
 - Check for the presence of an HTML comment containing the text "frame-busting" which was found as an artifact on older/legacy citrix installations
