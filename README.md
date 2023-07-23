@@ -117,4 +117,20 @@ Bryan Smith
 - Twitter: https://twitter.com/securekomodo
 - Bugcrowd/Hackerone: @d4rkm0de
 
+### Note for MacOS Users:
+This may require an adaptation of the OpenSSL configuration due to restrictions in OpenSSL3.  We were able to bypass these roadblocks by doing the following:
+
+1. Follow all instructions in this README file. 
+2. After cloning this repository, rename the file "openssl.conf.sample" to "openssl.conf".
+3. When running the scanner utility, construct your command like the example shown below. 
+
+`OPENSSL_CONF=/full/path/to/cloned/repo/openssl.conf python cve_2023_3519_inspector.py -u <url>`
+
+## Contributor
+Paul Goffar
+
+- Twitter: https://twitter.com/n3tl0kr
+- Bugcrowd/Hackerone: @n3tl0kr
+- Github: https://github.com/n3tl0kr
+
 ---
