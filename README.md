@@ -12,7 +12,9 @@ vulnerable to.
 > all (see the Checks Performed section below). Treat results for the newer CVEs as informational
 > only.
 
-<img width="968" alt="image" src="https://github.com/securekomodo/citrixInspector/assets/4809643/f9186404-cc85-4ffb-89be-32b5f0db05ba">
+![Sample scan output showing a build identified as 13.0-91.13, patched for CVE-2023-3519 but vulnerable to 9 newer CVEs](docs/sample-scan.png)
+
+*Output was run against a simulated test harness. Hostname is a placeholder only.*
 
 
 ### Recent Updates (2026)
